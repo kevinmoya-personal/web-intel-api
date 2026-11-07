@@ -1,0 +1,82 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Web2Agent & SEO/GEO Intelligence API",
+    "version": "1.0.0",
+    "description": "Convert any URL into clean LLM-ready Markdown, run instant SEO & AI-Readiness (GEO / llms.txt / JSON-LD) technical audits, and enrich B2B domains with technology stack fingerprinting and public contacts."
+  },
+  "paths": {
+    "/api/v1/extract": {
+      "get": {
+        "summary": "Extract Clean LLM Markdown & Metadata from URL",
+        "description": "Strips scripts, ads, and boilerplate HTML to return clean Markdown, word count, estimated LLM token count, and OpenGraph metadata.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "https://example.com" },
+            "description": "Target webpage URL to extract"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Successful extraction" }
+        }
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "summary": "Run Technical SEO & AI-Readiness (GEO) Audit",
+        "description": "Audits on-page SEO tags, heading hierarchy, image accessibility, security headers, JSON-LD structured data, and /llms.txt + AI crawler access.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "https://example.com" },
+            "description": "Target webpage URL to audit"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Audit score (0-100) and actionable issues" }
+        }
+      }
+    },
+    "/api/v1/tech-stack": {
+      "get": {
+        "summary": "Detect Website Tech Stack & Public B2B Contacts",
+        "description": "Fingerprints frontend frameworks, CMS, analytics, payment providers, CDN headers, public emails, and social links.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "https://example.com" },
+            "description": "Target company domain or webpage URL"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detected technologies and contact signals" }
+        }
+      }
+    },
+    "/api/v1/full-report": {
+      "get": {
+        "summary": "All-in-One Extraction, SEO/GEO Audit & Tech Stack Report",
+        "description": "Returns the complete intelligence report combining clean Markdown, SEO/GEO audit, and B2B technology/contact enrichment in a single call.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "https://example.com" },
+            "description": "Target webpage URL"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Complete intelligence report" }
+        }
+      }
+    }
+  }
+}

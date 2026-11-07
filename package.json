@@ -1,0 +1,13 @@
+{
+  "name": "web-intel-api",
+  "version": "1.0.0",
+  "description": "Web Intelligence, Clean LLM Markdown Extractor, SEO/GEO Auditor & B2B Lead Enrichment API for RapidAPI",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node test-api.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
