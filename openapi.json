@@ -5,6 +5,11 @@
     "version": "1.0.0",
     "description": "Convert any URL into clean LLM-ready Markdown, run instant SEO & AI-Readiness (GEO / llms.txt / JSON-LD) technical audits, and enrich B2B domains with technology stack fingerprinting and public contacts."
   },
+  "servers": [
+    {
+      "url": "https://web-intel-api.vercel.app"
+    }
+  ],
   "paths": {
     "/api/v1/extract": {
       "get": {

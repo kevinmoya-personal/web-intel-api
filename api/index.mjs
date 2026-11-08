@@ -1,6 +1,8 @@
 /**
  * Serverless API Handler (Compatible with Vercel Functions & Node.js HTTP)
  * Endpoints:
+ * - GET / (Interactive SaaS Landing Page + Live Playground when viewed in browser)
+ * - GET /openapi.json (Public OpenAPI 3.0 Spec for RapidAPI URL Import)
  * - GET/POST /api/v1/extract?url=https://...
  * - GET/POST /api/v1/audit?url=https://...
  * - GET/POST /api/v1/tech-stack?url=https://...
@@ -16,8 +18,124 @@ import {
   detectTechAndContacts
 } from '../lib/analyzer.mjs';
 
+const OPENAPI_SPEC = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Web2Agent & SEO/GEO Intelligence API',
+    version: '1.0.0',
+    description: 'Convert any URL into clean LLM-ready Markdown, run instant SEO & AI-Readiness (GEO / llms.txt / JSON-LD) technical audits, and enrich B2B domains with technology stack fingerprinting and public contacts.'
+  },
+  servers: [{ url: 'https://web-intel-api.vercel.app' }],
+  paths: {
+    '/api/v1/extract': {
+      get: {
+        summary: 'Extract Clean LLM Markdown & Metadata from URL',
+        parameters: [{ name: 'url', in: 'query', required: true, schema: { type: 'string', example: 'https://example.com' } }],
+        responses: { '200': { description: 'Successful extraction' } }
+      }
+    },
+    '/api/v1/audit': {
+      get: {
+        summary: 'Run Technical SEO & AI-Readiness (GEO) Audit',
+        parameters: [{ name: 'url', in: 'query', required: true, schema: { type: 'string', example: 'https://example.com' } }],
+        responses: { '200': { description: 'Audit score (0-100) and actionable issues' } }
+      }
+    },
+    '/api/v1/tech-stack': {
+      get: {
+        summary: 'Detect Website Tech Stack & Public B2B Contacts',
+        parameters: [{ name: 'url', in: 'query', required: true, schema: { type: 'string', example: 'https://example.com' } }],
+        responses: { '200': { description: 'Detected technologies and contact signals' } }
+      }
+    },
+    '/api/v1/full-report': {
+      get: {
+        summary: 'All-in-One Extraction, SEO/GEO Audit & Tech Stack Report',
+        parameters: [{ name: 'url', in: 'query', required: true, schema: { type: 'string', example: 'https://example.com' } }],
+        responses: { '200': { description: 'Complete intelligence report' } }
+      }
+    }
+  }
+};
+
+const LANDING_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web2Agent & SEO/GEO Intelligence API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+  <div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium mb-4">
+      ⚡ Production API Online • Ultra-Low Latency
+    </div>
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
+      Web2Agent & SEO/GEO Intelligence API
+    </h1>
+    <p class="text-slate-400 text-lg max-w-2xl mb-8">
+      Turn any URL into clean LLM-ready Markdown, audit Technical SEO + AI-Readiness (<code class="text-emerald-300">/llms.txt</code> & Schema.org), and fingerprint B2B Tech Stacks in milliseconds.
+    </p>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-10 shadow-xl">
+      <h2 class="text-lg font-semibold mb-3">🔬 Live Interactive API Playground</h2>
+      <div class="flex flex-col md:flex-row gap-3 mb-4">
+        <input id="urlInput" type="text" value="https://algora.io" placeholder="https://example.com" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+        <select id="endpointSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm">
+          <option value="/api/v1/audit">GET /api/v1/audit (SEO + AI GEO Score)</option>
+          <option value="/api/v1/extract">GET /api/v1/extract (Clean LLM Markdown)</option>
+          <option value="/api/v1/tech-stack">GET /api/v1/tech-stack (B2B Tech & Contacts)</option>
+          <option value="/api/v1/full-report">GET /api/v1/full-report (All-in-One Report)</option>
+        </select>
+        <button onclick="runTest()" id="runBtn" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg text-sm transition">
+          Run API Call
+        </button>
+      </div>
+      <pre id="outputBox" class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs text-emerald-300 overflow-x-auto max-h-96">Click "Run API Call" to test the live production endpoint...</pre>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <h3 class="font-bold text-white mb-1">1. Clean LLM Markdown</h3>
+        <p class="text-xs text-slate-400 mb-3">Strips ads, scripts & navbars. Returns clean Markdown + exact token estimate for AI agents.</p>
+        <code class="text-xs text-emerald-400">GET /api/v1/extract?url=...</code>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <h3 class="font-bold text-white mb-1">2. SEO & AI GEO Audit</h3>
+        <p class="text-xs text-slate-400 mb-3">0–100 score checking meta tags, H1 hierarchy, JSON-LD, /llms.txt, and AI bot blocking.</p>
+        <code class="text-xs text-emerald-400">GET /api/v1/audit?url=...</code>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <h3 class="font-bold text-white mb-1">3. B2B Tech & Contacts</h3>
+        <p class="text-xs text-slate-400 mb-3">Detects frameworks, CMS, analytics, Stripe/HubSpot, emails, and social links.</p>
+        <code class="text-xs text-emerald-400">GET /api/v1/tech-stack?url=...</code>
+      </div>
+    </div>
+  </div>
+  <script>
+    async function runTest() {
+      const btn = document.getElementById('runBtn');
+      const out = document.getElementById('outputBox');
+      const url = document.getElementById('urlInput').value.trim();
+      const ep = document.getElementById('endpointSelect').value;
+      btn.textContent = 'Running...';
+      out.textContent = 'Fetching ' + ep + '?url=' + encodeURIComponent(url) + ' ...';
+      try {
+        const res = await fetch(ep + '?url=' + encodeURIComponent(url));
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+      } finally {
+        btn.textContent = 'Run API Call';
+      }
+    }
+  </script>
+</body>
+</html>`;
+
 export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, headers = {}) {
-  // Optional RapidAPI Proxy Secret protection (if RAPIDAPI_PROXY_SECRET env var is set in Vercel)
   const expectedSecret = process.env.RAPIDAPI_PROXY_SECRET;
   if (expectedSecret) {
     const incomingSecret = headers['x-rapidapi-proxy-secret'];
@@ -37,6 +155,13 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
   const rawPathname = rewrittenPath || parsed.pathname;
   const pathname = rawPathname.replace(/\/+$/, '') || '/';
 
+  if (pathname === '/openapi.json') {
+    return {
+      status: 200,
+      body: OPENAPI_SPEC
+    };
+  }
+
   if (
     pathname === '/' ||
     pathname === '/api' ||
@@ -45,10 +170,12 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
   ) {
     return {
       status: 200,
+      isLandingCandidate: pathname === '/' || pathname === '/api/index.mjs',
       body: {
         success: true,
         service: 'Web2Agent & SEO/GEO Intelligence API',
         version: '1.0.0',
+        openapiSpecUrl: 'https://web-intel-api.vercel.app/openapi.json',
         endpoints: [
           '/api/v1/extract?url=https://example.com',
           '/api/v1/audit?url=https://example.com',
@@ -178,7 +305,6 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
   }
 }
 
-// Default export for Vercel Serverless Functions
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -189,5 +315,11 @@ export default async function handler(req, res) {
   }
 
   const result = await handleApiRequest(req.url, req.method, req.body || {}, req.headers || {});
+  const acceptHeader = (req.headers?.['accept'] || '').toLowerCase();
+  if (result.isLandingCandidate && acceptHeader.includes('text/html')) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(LANDING_HTML);
+  }
+
   res.status(result.status).json(result.body);
 }
