@@ -166,7 +166,8 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     pathname === '/' ||
     pathname === '/api' ||
     pathname === '/api/index.mjs' ||
-    pathname.endsWith('/health')
+    pathname.endsWith('/health') ||
+    pathname.endsWith('/ping')
   ) {
     return {
       status: 200,
