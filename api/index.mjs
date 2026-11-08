@@ -17,6 +17,14 @@ import {
   computeAuditReport,
   detectTechAndContacts
 } from '../lib/analyzer.mjs';
+import {
+  validateEmailAndDomain,
+  runDomainRecon,
+  inspectSslCertificate,
+  unfurlLink,
+  analyzeAndRedactText,
+  auditHttpSecurityHeaders
+} from '../lib/catalog-apis.mjs';
 
 const OPENAPI_SPEC = {
   openapi: '3.0.3',
@@ -190,24 +198,101 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
           '/api/v1/extract?url=https://example.com',
           '/api/v1/audit?url=https://example.com',
           '/api/v1/tech-stack?url=https://example.com',
-          '/api/v1/full-report?url=https://example.com'
+          '/api/v1/full-report?url=https://example.com',
+          '/api/v1/email-verify?email=contact@stripe.com',
+          '/api/v1/domain-recon?domain=stripe.com',
+          '/api/v1/ssl-check?domain=stripe.com',
+          '/api/v1/unfurl?url=https://stripe.com',
+          '/api/v1/ai-guard?text=Contact+john@acme.com+or+call+555-123-4567',
+          '/api/v1/security-headers?url=https://stripe.com'
         ]
       }
     };
   }
 
-  const targetUrl = parsed.searchParams.get('url') || bodyObj?.url;
-  if (!targetUrl) {
-    return {
-      status: 400,
-      body: {
-        success: false,
-        error: 'Missing required "url" query parameter or JSON body property (e.g. ?url=https://stripe.com).'
-      }
-    };
-  }
-
   try {
+    // API #2: Disposable Email, MX & B2B Lead Validator
+    if (pathname.endsWith('/email-verify')) {
+      const email = parsed.searchParams.get('email') || bodyObj?.email;
+      if (!email) {
+        return {
+          status: 400,
+          body: { success: false, error: 'Missing required "email" parameter (e.g. ?email=contact@stripe.com).' }
+        };
+      }
+      const report = await validateEmailAndDomain(email);
+      return { status: 200, body: { success: true, ...report } };
+    }
+
+    // API #3: DNS, SSL Certificate & Domain Security Recon
+    if (pathname.endsWith('/domain-recon') || pathname.endsWith('/ssl-check')) {
+      const domain = parsed.searchParams.get('domain') || parsed.searchParams.get('url') || bodyObj?.domain || bodyObj?.url;
+      if (!domain) {
+        return {
+          status: 400,
+          body: { success: false, error: 'Missing required "domain" parameter (e.g. ?domain=stripe.com).' }
+        };
+      }
+      if (pathname.endsWith('/ssl-check')) {
+        const cleanHost = String(domain).replace(/^https?:\/\//i, '').split('/')[0].replace(/^www\./i, '');
+        const ssl = await inspectSslCertificate(cleanHost);
+        return { status: 200, body: { success: true, domain: cleanHost, ssl } };
+      }
+      const recon = await runDomainRecon(domain);
+      return { status: 200, body: { success: true, ...recon } };
+    }
+
+    // API #4: SERP Preview, Social Card & Link Unfurler
+    if (pathname.endsWith('/unfurl')) {
+      const url = parsed.searchParams.get('url') || bodyObj?.url;
+      if (!url) {
+        return {
+          status: 400,
+          body: { success: false, error: 'Missing required "url" parameter (e.g. ?url=https://stripe.com).' }
+        };
+      }
+      const data = await unfurlLink(url);
+      return { status: 200, body: { success: true, ...data } };
+    }
+
+    // API #5: AI Prompt Security, PII Redactor & RAG Chunker
+    if (pathname.endsWith('/ai-guard') || pathname.endsWith('/pii-redact')) {
+      const text = parsed.searchParams.get('text') || bodyObj?.text;
+      const chunkSize = Number(parsed.searchParams.get('chunkSize') || bodyObj?.chunkSize || 250);
+      if (!text) {
+        return {
+          status: 400,
+          body: { success: false, error: 'Missing required "text" parameter (e.g. ?text=Reach+me+at+ceo@company.com).' }
+        };
+      }
+      const analysis = analyzeAndRedactText(text, chunkSize);
+      return { status: 200, body: { success: true, ...analysis } };
+    }
+
+    // API #6: HTTP Security Headers & OWASP Compliance Auditor
+    if (pathname.endsWith('/security-headers')) {
+      const url = parsed.searchParams.get('url') || bodyObj?.url;
+      if (!url) {
+        return {
+          status: 400,
+          body: { success: false, error: 'Missing required "url" parameter (e.g. ?url=https://stripe.com).' }
+        };
+      }
+      const sec = await auditHttpSecurityHeaders(url);
+      return { status: 200, body: { success: true, ...sec } };
+    }
+
+    const targetUrl = parsed.searchParams.get('url') || bodyObj?.url;
+    if (!targetUrl) {
+      return {
+        status: 400,
+        body: {
+          success: false,
+          error: 'Missing required "url" query parameter or JSON body property (e.g. ?url=https://stripe.com).'
+        }
+      };
+    }
+
     const pageData = await fetchTargetPage(targetUrl);
 
     if (pathname.endsWith('/extract')) {
