@@ -33,9 +33,16 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
   }
 
   const parsed = new URL(reqUrl, 'http://localhost');
-  const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+  const rewrittenPath = parsed.searchParams.get('__path');
+  const rawPathname = rewrittenPath || parsed.pathname;
+  const pathname = rawPathname.replace(/\/+$/, '') || '/';
 
-  if (pathname === '/' || pathname === '/api' || pathname === '/api/v1/health') {
+  if (
+    pathname === '/' ||
+    pathname === '/api' ||
+    pathname === '/api/index.mjs' ||
+    pathname.endsWith('/health')
+  ) {
     return {
       status: 200,
       body: {
