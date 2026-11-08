@@ -74,9 +74,18 @@ const LANDING_HTML = `<!DOCTYPE html>
     <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
       Web2Agent & SEO/GEO Intelligence API
     </h1>
-    <p class="text-slate-400 text-lg max-w-2xl mb-8">
+    <p class="text-slate-400 text-lg max-w-2xl mb-6">
       Turn any URL into clean LLM-ready Markdown, audit Technical SEO + AI-Readiness (<code class="text-emerald-300">/llms.txt</code> & Schema.org), and fingerprint B2B Tech Stacks in milliseconds.
     </p>
+
+    <div class="flex flex-wrap gap-4 mb-10">
+      <a href="https://rapidapi.com/kevinmoyapersonal/api/web2agent-clean-markdown-seo-geo-auditor" target="_blank" rel="noopener" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-lg text-sm transition shadow-lg shadow-blue-600/25">
+        🚀 Subscribe on RapidAPI Hub (Free / Pro / Ultra)
+      </a>
+      <a href="/openapi.json" target="_blank" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-medium px-5 py-3 rounded-lg text-sm transition">
+        📄 OpenAPI 3.0 Spec
+      </a>
+    </div>
 
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-10 shadow-xl">
       <h2 class="text-lg font-semibold mb-3">🔬 Live Interactive API Playground</h2>
