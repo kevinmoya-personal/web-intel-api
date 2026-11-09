@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.kevinmoya-personal/web2agent",
+  "title": "Web2Agent Web Intelligence",
+  "description": "URL to clean Markdown, AI-search (GEO)/SEO audit, tech stack, email validation, DNS/SSL, link unfurl, PII redaction and security headers.",
+  "version": "1.1.0",
+  "repository": {
+    "url": "https://github.com/kevinmoya-personal/web-intel-api",
+    "source": "github"
+  },
+  "websiteUrl": "https://web-intel-api.vercel.app",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://web-intel-api.vercel.app/mcp",
+      "headers": [
+        {
+          "name": "x-rapidapi-key",
+          "description": "Your RapidAPI key (free plan available at https://rapidapi.com/user/kevinmoyapersonal)",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
