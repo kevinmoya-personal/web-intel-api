@@ -28,6 +28,7 @@ import {
 import { checkProxySecret, assertPublicHost } from '../lib/security.mjs';
 import { runPublicCheck } from '../lib/public-check.mjs';
 import { handleMcp } from '../lib/mcp.mjs';
+import { OG_IMAGE_PNG_BASE64 } from '../lib/og-image.mjs';
 
 const OPENAPI_SPEC = {
   openapi: '3.0.3',
@@ -95,13 +96,19 @@ const LANDING_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Free AI Search (GEO) Checker – Can ChatGPT read your website? | Web2Agent</title>
-  <meta name="description" content="Free check: can ChatGPT, Perplexity and Google AI read your website? Audits /llms.txt, AI crawler blocking, structured data and meta tags in seconds. API and MCP server for developers." />
+  <title>Free AI Search (GEO) Checker – Can ChatGPT read your site?</title>
+  <meta name="description" content="Free check: can ChatGPT, Perplexity and Google AI read your website? Audits /llms.txt, AI crawlers, structured data and meta tags. No signup." />
   <link rel="canonical" href="https://web-intel-api.vercel.app/" />
   <meta property="og:title" content="Can ChatGPT read your website? Free AI-search (GEO) checker" />
   <meta property="og:description" content="Score 0–100 with the exact issues blocking AI search engines. No signup." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://web-intel-api.vercel.app/" />
+  <meta property="og:image" content="https://web-intel-api.vercel.app/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Can ChatGPT read your website? Free AI-search (GEO) checker" />
+  <meta name="twitter:image" content="https://web-intel-api.vercel.app/og.png" />
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Web2Agent AI Search (GEO) Checker","url":"https://web-intel-api.vercel.app/","applicationCategory":"DeveloperApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Checks whether AI search engines like ChatGPT, Perplexity and Google AI can read and understand a website."}</script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -237,6 +244,7 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     pathname === '/openapi.json' ||
     pathname === '/mcp' ||
     pathname === '/llms.txt' ||
+    pathname === '/og.png' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||
     pathname === '/api/public/check' ||
@@ -250,6 +258,9 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     }
   }
 
+  if (pathname === '/og.png') {
+    return { status: 200, contentType: 'image/png', text: Buffer.from(OG_IMAGE_PNG_BASE64, 'base64'), cache: 'public, max-age=86400' };
+  }
   if (pathname === '/llms.txt') {
     return { status: 200, text: LLMS_TXT, contentType: 'text/plain; charset=utf-8' };
   }
@@ -529,6 +540,7 @@ export default async function handler(req, res) {
 
   if (result.text !== undefined) {
     res.setHeader('Content-Type', result.contentType || 'text/plain; charset=utf-8');
+    if (result.cache) res.setHeader('Cache-Control', result.cache);
     return res.status(result.status).send(result.text);
   }
   if (result.headers) {
