@@ -24,8 +24,8 @@ Convert any webpage URL into **clean LLM-ready Markdown**, run instant **Technic
 ## 💳 Pricing Plans on RapidAPI
 
 - **BASIC ($0.00 / mo):** 50 requests/month — Free forever for testing & prototyping.
-- **PRO ($9.99 / mo):** 5,000 requests/month (`+$0.003` per extra request) — Ideal for AI Agents, n8n/Make automations & SEO dashboards.
-- **ULTRA ($29.99 / mo):** 25,000 requests/month (`+$0.002` per extra request) — Built for high-volume B2B enrichment & SaaS platforms.
+- **PRO ($24.99 / mo) — Recommended:** 10,000 requests/month (`+$0.003` per extra request) — Ideal for AI Agents, n8n/Make automations & SEO dashboards.
+- **ULTRA ($74.99 / mo):** 50,000 requests/month (`+$0.002` per extra request) — Built for high-volume B2B enrichment & SaaS platforms.
 
 👉 **[Subscribe on RapidAPI Marketplace](https://rapidapi.com/kevinmoyapersonal/api/web2agent-clean-markdown-seo-geo-auditor)**
 
