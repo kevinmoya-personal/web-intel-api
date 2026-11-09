@@ -102,3 +102,21 @@ test('public routes stay open in production; paid routes stay protected', async 
     process.env = saved;
   }
 });
+
+test('landing renders in English and Spanish, with safe contact CTA config', async () => {
+  const { renderLanding } = await import('../lib/landing.mjs');
+  const en = renderLanding('en', {});
+  const es = renderLanding('es', { CONTACT_URL: 'https://wa.me/573000000000' });
+  assert.match(en, /<html lang="en">/);
+  assert.match(es, /<html lang="es">/);
+  assert.match(es, /Revisar mi sitio/);
+  assert.match(es, /og-es\.png/);
+  assert.match(es, /var CONTACT_URL = "https:\/\/wa\.me\/573000000000"/);
+  assert.match(en, /var CONTACT_URL = ""/);
+  assert.doesNotMatch(en + es, /\{\{\w+\}\}/);
+  // only https/mailto contact links are accepted
+  assert.match(renderLanding('es', { CONTACT_URL: 'javascript:alert(1)' }), /var CONTACT_URL = ""/);
+  const r = await handleApiRequest('/es', 'GET', {}, {});
+  assert.equal(r.status, 200);
+  assert.match(r.text, /lang="es"/);
+});
