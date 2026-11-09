@@ -38,6 +38,7 @@ All `/api/v1/*` endpoints only answer requests that come through the RapidAPI ga
 | Variable | Required | Description |
 | :--- | :---: | :--- |
 | `RAPIDAPI_PROXY_SECRETS` | ✅ on Vercel | Comma-separated list with the proxy secret of **each** RapidAPI project that uses this backend (Studio → Hub Listing → Gateway). |
+| `RAPIDAPI_PROXY_SECRET_1` … `_6` | alternative | One variable per project instead of the comma list (easier to paste). |
 | `RAPIDAPI_PROXY_SECRET` | – | Legacy single secret (still accepted). |
 | `ALLOW_UNAUTHENTICATED` | – | `true` disables the check on Vercel. Only for demos — never in production. |
 

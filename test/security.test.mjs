@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { checkProxySecret, getConfiguredSecrets, isPrivateIp, assertPublicHost } from '../lib/security.mjs';
 import { handleApiRequest } from '../api/index.mjs';
 
-const ENV_KEYS = ['RAPIDAPI_PROXY_SECRETS', 'RAPIDAPI_PROXY_SECRET', 'VERCEL', 'VERCEL_ENV', 'ALLOW_UNAUTHENTICATED'];
+const ENV_KEYS = ['RAPIDAPI_PROXY_SECRETS', 'RAPIDAPI_PROXY_SECRET', 'RAPIDAPI_PROXY_SECRET_1', 'VERCEL', 'VERCEL_ENV', 'ALLOW_UNAUTHENTICATED'];
 function withEnv(vars, fn) {
   const saved = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
   for (const k of ENV_KEYS) delete process.env[k];
@@ -21,6 +21,13 @@ test('parses multiple secrets and legacy single secret', () => {
     getConfiguredSecrets({ RAPIDAPI_PROXY_SECRETS: ' a , b,,c ', RAPIDAPI_PROXY_SECRET: 'd' }),
     ['a', 'b', 'c', 'd']
   );
+});
+
+test('accepts one variable per project', () => {
+  const env = { RAPIDAPI_PROXY_SECRET_1: 'one', RAPIDAPI_PROXY_SECRET_WEB2AGENT: 'two', OTHER: 'x' };
+  assert.deepEqual(getConfiguredSecrets(env).sort(), ['one', 'two']);
+  assert.equal(checkProxySecret({ 'x-rapidapi-proxy-secret': 'two' }, env).ok, true);
+  assert.equal(checkProxySecret({ 'x-rapidapi-proxy-secret': 'x' }, env).status, 403);
 });
 
 test('accepts any configured secret, rejects missing or wrong one', () => {
