@@ -16,8 +16,10 @@ Ready-to-import n8n workflows built on these APIs. In n8n: **Workflows → Impor
 
 No API key is stored in the JSON files. Each workflow contains sticky notes with setup steps and limitations.
 
-## Example output (GEO audit of https://example.com)
+## Example output (real audit of https://example.com, Nov 2026)
 
-| url | score | grade | issues_count | has_llms_txt | ai_bots_blocked | top_issues |
-| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| https://example.com | 34 | D | 8 | no | none | `[high] SEO: Missing meta description.` · `[high] Structure: No <h1> heading found on the page.` · `[medium] AI-Readiness (GEO): No JSON-LD (Schema.org) structured data found…` |
+| url | score | grade | issues_count | top_issues (sorted by severity) |
+| :--- | :---: | :---: | :---: | :--- |
+| https://example.com | 34 | D | 8 | `[high] SEO: Missing meta description.` · `[high] Structure: No <h1> heading found on the page.` · `[medium] SEO: Missing rel="canonical" link tag.` · `[low] SEO: Title length (14 chars) is outside optimal 15–70 chars range.` |
+
+(example.com's current page really has no `<h1>`: it was redesigned as a minimal page.)
