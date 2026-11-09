@@ -31,7 +31,7 @@ const OPENAPI_SPEC = {
   openapi: '3.0.3',
   info: {
     title: 'Web2Agent & SEO/GEO Intelligence API',
-    version: '1.0.0',
+    version: '1.1.0',
     description: 'Convert any URL into clean LLM-ready Markdown, run instant SEO & AI-Readiness (GEO / llms.txt / JSON-LD) technical audits, and enrich B2B domains with technology stack fingerprinting and public contacts.'
   },
   servers: [{ url: 'https://web-intel-api.vercel.app' }],
@@ -169,7 +169,7 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
       body: {
         success: true,
         service: 'Web2Agent & SEO/GEO Intelligence API',
-        version: '1.0.0',
+        version: '1.1.0',
         openapiSpecUrl: 'https://web-intel-api.vercel.app/openapi.json',
         endpoints: [
           '/api/v1/extract?url=https://example.com',
