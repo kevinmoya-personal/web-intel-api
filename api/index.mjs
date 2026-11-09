@@ -26,6 +26,8 @@ import {
   auditHttpSecurityHeaders
 } from '../lib/catalog-apis.mjs';
 import { checkProxySecret, assertPublicHost } from '../lib/security.mjs';
+import { runPublicCheck } from '../lib/public-check.mjs';
+import { handleMcp } from '../lib/mcp.mjs';
 
 const OPENAPI_SPEC = {
   openapi: '3.0.3',
@@ -67,12 +69,40 @@ const OPENAPI_SPEC = {
   }
 };
 
+const LLMS_TXT = `# Web2Agent Web Intelligence
+
+> Free AI-search (GEO) checker plus 6 web-intelligence APIs and a remote MCP server for AI agents.
+
+## Free tool
+- [AI search (GEO) checker](https://web-intel-api.vercel.app/#check): checks whether ChatGPT, Perplexity and Google AI can read a website (/llms.txt, AI crawler rules in robots.txt, JSON-LD, meta tags, headings). No signup, 5 checks per day.
+
+## APIs (RapidAPI, free plan available)
+- [Web2Agent Clean Markdown & SEO GEO Auditor](https://rapidapi.com/kevinmoyapersonal/api/web2agent-clean-markdown-seo-geo-auditor): URL to clean LLM Markdown, GEO/SEO audit, tech stack.
+- [HTTP Security Headers & OWASP Compliance Auditor](https://rapidapi.com/kevinmoyapersonal/api/http-security-headers-owasp-compliance-auditor)
+- [AI Prompt Guard, PII Redactor & RAG Chunker](https://rapidapi.com/kevinmoyapersonal/api/ai-prompt-guard-pii-redactor-rag-chunker)
+- [SERP Preview, Social Card & Link Unfurler](https://rapidapi.com/kevinmoyapersonal/api/serp-preview-social-card-link-unfurler)
+- [DNS, SSL Certificate & Domain Security Recon](https://rapidapi.com/kevinmoyapersonal/api/dns-ssl-certificate-domain-security-recon)
+- [Disposable Email, MX & B2B Lead Validator](https://rapidapi.com/kevinmoyapersonal/api/disposable-email-mx-b2b-lead-validator)
+
+## For AI agents
+- MCP server (Streamable HTTP): https://web-intel-api.vercel.app/mcp with header x-rapidapi-key
+- [OpenAPI spec](https://web-intel-api.vercel.app/openapi.json)
+- [n8n templates and source](https://github.com/kevinmoya-personal/web-intel-api)
+`;
+
 const LANDING_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Web2Agent & SEO/GEO Intelligence API</title>
+  <title>Free AI Search (GEO) Checker – Can ChatGPT read your website? | Web2Agent</title>
+  <meta name="description" content="Free check: can ChatGPT, Perplexity and Google AI read your website? Audits /llms.txt, AI crawler blocking, structured data and meta tags in seconds. API and MCP server for developers." />
+  <link rel="canonical" href="https://web-intel-api.vercel.app/" />
+  <meta property="og:title" content="Can ChatGPT read your website? Free AI-search (GEO) checker" />
+  <meta property="og:description" content="Score 0–100 with the exact issues blocking AI search engines. No signup." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://web-intel-api.vercel.app/" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Web2Agent AI Search (GEO) Checker","url":"https://web-intel-api.vercel.app/","applicationCategory":"DeveloperApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Checks whether AI search engines like ChatGPT, Perplexity and Google AI can read and understand a website."}</script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
@@ -94,6 +124,17 @@ const LANDING_HTML = `<!DOCTYPE html>
       <a href="/openapi.json" target="_blank" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-medium px-5 py-3 rounded-lg text-sm transition">
         📄 OpenAPI 3.0 Spec
       </a>
+    </div>
+
+    <div id="check" class="bg-slate-900 border border-emerald-500/40 rounded-xl p-6 mb-10 shadow-xl">
+      <h2 class="text-xl font-bold mb-1">Can ChatGPT, Perplexity &amp; Google AI read your website?</h2>
+      <p class="text-sm text-slate-400 mb-4">Free AI-search (GEO) check — no signup. Checks /llms.txt, AI crawler blocking in robots.txt, structured data, meta tags and headings.</p>
+      <form id="checkForm" class="flex flex-col sm:flex-row gap-3">
+        <input id="checkUrl" type="text" inputmode="url" required placeholder="https://yourwebsite.com" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-emerald-500" />
+        <button id="checkBtn" type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-3 rounded-lg text-sm">Check my site</button>
+      </form>
+      <div id="checkOut" class="mt-5 hidden"></div>
+      <p class="text-xs text-slate-500 mt-3">5 free checks per day. Full report, bulk audits and API access via RapidAPI (free plan available).</p>
     </div>
 
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-10 shadow-xl">
@@ -122,7 +163,62 @@ const LANDING_HTML = `<!DOCTYPE html>
         <code class="text-xs text-emerald-400">GET /api/v1/tech-stack?url=...</code>
       </div>
     </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mt-10 shadow-xl">
+      <h2 class="text-lg font-semibold mb-2">🤖 Use it from AI agents (MCP server)</h2>
+      <p class="text-sm text-slate-400 mb-4">Add all 9 tools (web-to-Markdown, GEO audit, tech stack, email validation, DNS/SSL, link unfurl, prompt guard &amp; PII redaction, security headers) to Claude, Cursor or any MCP client. Uses your RapidAPI key, so the free plan works.</p>
+      <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs text-emerald-300 overflow-x-auto">{
+  "mcpServers": {
+    "web2agent": {
+      "type": "http",
+      "url": "https://web-intel-api.vercel.app/mcp",
+      "headers": { "x-rapidapi-key": "YOUR_RAPIDAPI_KEY" }
+    }
+  }
+}</pre>
+    </div>
   </div>
+  <script>
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const sevColor = { high: 'text-red-400', medium: 'text-amber-400', low: 'text-sky-400', info: 'text-slate-400' };
+    document.getElementById('checkForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const out = document.getElementById('checkOut');
+      const btn = document.getElementById('checkBtn');
+      const url = document.getElementById('checkUrl').value.trim();
+      if (!url) return;
+      btn.disabled = true; btn.textContent = 'Checking…';
+      out.classList.remove('hidden');
+      out.innerHTML = '<p class="text-sm text-slate-400">Analyzing ' + esc(url) + '…</p>';
+      try {
+        const r = await fetch('/api/public/check?url=' + encodeURIComponent(url));
+        const d = await r.json();
+        if (!d.success) {
+          out.innerHTML = '<p class="text-sm text-red-400">' + esc(d.error || 'Could not analyze that URL.') + '</p>' +
+            (d.upgradeUrl ? '<a class="text-sm text-emerald-400 underline" target="_blank" rel="noopener" href="' + esc(d.upgradeUrl) + '">Get more checks on RapidAPI →</a>' : '');
+          return;
+        }
+        const color = d.score >= 75 ? 'text-emerald-400' : d.score >= 60 ? 'text-amber-400' : 'text-red-400';
+        const bots = d.aiReadiness.blocksAiBots ? 'Blocks: ' + esc(d.aiReadiness.blockedBots.join(', ')) : 'Not blocked';
+        out.innerHTML =
+          '<div class="flex items-baseline gap-4 mb-4"><span class="text-5xl font-extrabold ' + color + '">' + d.score + '</span>' +
+          '<span class="text-slate-400">/ 100 · grade <b class="text-white">' + esc(d.grade) + '</b> · ' + d.issuesCount + ' issues</span></div>' +
+          '<div class="grid sm:grid-cols-2 gap-3 mb-4 text-sm">' +
+          '<div class="bg-slate-950 rounded-lg p-3">/llms.txt: <b>' + (d.aiReadiness.hasLlmsTxt ? 'found' : 'missing') + '</b></div>' +
+          '<div class="bg-slate-950 rounded-lg p-3">AI crawlers in robots.txt: <b>' + bots + '</b></div></div>' +
+          '<ul class="space-y-2 mb-4">' + d.topIssues.map(i =>
+            '<li class="text-sm"><span class="uppercase text-xs font-bold ' + (sevColor[i.severity] || '') + '">' + esc(i.severity) + '</span> ' +
+            '<span class="text-slate-400">' + esc(i.category) + ':</span> ' + esc(i.message) + '</li>').join('') + '</ul>' +
+          (d.hiddenIssues > 0 ? '<p class="text-sm text-slate-300 mb-2">+ ' + d.hiddenIssues + ' more issues in the full report.</p>' : '') +
+          '<a class="inline-block bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-lg" target="_blank" rel="noopener" href="' + esc(d.fullReportUrl) + '">Get the full report &amp; API access (free plan) →</a>' +
+          '<p class="text-xs text-slate-500 mt-3">' + d.freeChecksRemainingToday + ' free checks left today.</p>';
+      } catch (err) {
+        out.innerHTML = '<p class="text-sm text-red-400">Network error. Please try again.</p>';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Check my site';
+      }
+    });
+  </script>
 </body>
 </html>`;
 
@@ -139,6 +235,11 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     pathname === '/api' ||
     pathname === '/api/index.mjs' ||
     pathname === '/openapi.json' ||
+    pathname === '/mcp' ||
+    pathname === '/llms.txt' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/api/public/check' ||
     pathname.endsWith('/health') ||
     pathname.endsWith('/ping');
 
@@ -146,6 +247,38 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     const auth = checkProxySecret(headers);
     if (!auth.ok) {
       return { status: auth.status, body: { success: false, error: auth.error } };
+    }
+  }
+
+  if (pathname === '/llms.txt') {
+    return { status: 200, text: LLMS_TXT, contentType: 'text/plain; charset=utf-8' };
+  }
+  if (pathname === '/robots.txt') {
+    return {
+      status: 200,
+      contentType: 'text/plain; charset=utf-8',
+      text: 'User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://web-intel-api.vercel.app/sitemap.xml\n'
+    };
+  }
+  if (pathname === '/sitemap.xml') {
+    return {
+      status: 200,
+      contentType: 'application/xml; charset=utf-8',
+      text: '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://web-intel-api.vercel.app/</loc></url><url><loc>https://web-intel-api.vercel.app/llms.txt</loc></url></urlset>\n'
+    };
+  }
+
+  // Remote MCP server for AI agents (each call forwarded to RapidAPI with the caller's key)
+  if (pathname === '/mcp') {
+    return handleMcp(method, bodyObj, headers);
+  }
+
+  // Free, rate-limited summary check used by the landing page (no signup)
+  if (pathname === '/api/public/check') {
+    try {
+      return await runPublicCheck(parsed.searchParams.get('url') || bodyObj?.url, headers);
+    } catch (err) {
+      return { status: 502, body: { success: false, error: err.message || 'Could not analyze that URL.' } };
     }
   }
 
@@ -380,8 +513,8 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-RapidAPI-Key, X-RapidAPI-Host, X-RapidAPI-Proxy-Secret');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-RapidAPI-Key, X-RapidAPI-Host, X-RapidAPI-Proxy-Secret, Mcp-Protocol-Version, Mcp-Session-Id');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -394,5 +527,15 @@ export default async function handler(req, res) {
     return res.status(200).send(LANDING_HTML);
   }
 
+  if (result.text !== undefined) {
+    res.setHeader('Content-Type', result.contentType || 'text/plain; charset=utf-8');
+    return res.status(result.status).send(result.text);
+  }
+  if (result.headers) {
+    for (const [k, v] of Object.entries(result.headers)) res.setHeader(k, v);
+  }
+  if (result.body === null || result.body === undefined) {
+    return res.status(result.status).end();
+  }
   res.status(result.status).json(result.body);
 }

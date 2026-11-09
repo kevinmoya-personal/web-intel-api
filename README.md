@@ -31,6 +31,30 @@ Convert any webpage URL into **clean LLM-ready Markdown**, run instant **Technic
 
 ---
 
+## 🆓 Free AI-search (GEO) checker
+
+**https://web-intel-api.vercel.app** — paste any URL and see, without signing up, whether ChatGPT, Perplexity and Google AI can read it: score 0–100, grade, `/llms.txt`, AI-crawler rules in `robots.txt` and the top issues. 5 free checks per day; the full report and bulk use are on RapidAPI.
+
+## 🤖 MCP server for AI agents
+
+All tools are available to Claude, Cursor and any MCP client through a remote MCP server (Streamable HTTP). Calls use **your** RapidAPI key, so the free plan works.
+
+```json
+{
+  "mcpServers": {
+    "web2agent": {
+      "type": "http",
+      "url": "https://web-intel-api.vercel.app/mcp",
+      "headers": { "x-rapidapi-key": "YOUR_RAPIDAPI_KEY" }
+    }
+  }
+}
+```
+
+Tools: `web_to_markdown`, `geo_seo_audit`, `tech_stack_and_contacts`, `verify_email`, `domain_security_recon`, `ssl_certificate_check`, `unfurl_link`, `prompt_guard_and_pii_redact`, `security_headers_audit`.
+
+---
+
 ## 🔒 Security & Deployment
 
 All `/api/v1/*` endpoints only answer requests that come through the RapidAPI gateway (header `X-RapidAPI-Proxy-Secret`). The landing page (`/`), `/openapi.json` and `/api/v1/health` stay public.

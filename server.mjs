@@ -2,40 +2,61 @@
 /**
  * Standalone HTTP Server for Web2Agent & SEO/GEO Intelligence API
  * (Used when running locally via `npm start` or on container platforms like Render/Railway)
+ *
+ * Reuses the exact Vercel handler through a tiny Express-style response shim, so local
+ * behaviour (landing page, MCP, llms.txt, auth) matches production.
  */
 
 import http from 'node:http';
-import { handleApiRequest } from './api/index.mjs';
+import handler from './api/index.mjs';
 
 const PORT = process.env.PORT || 3000;
 
+function shimResponse(res) {
+  let statusCode = 200;
+  const api = {
+    setHeader: (k, v) => { res.setHeader(k, v); return api; },
+    status: code => { statusCode = code; return api; },
+    json: obj => {
+      if (!res.getHeader('Content-Type')) res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.writeHead(statusCode);
+      res.end(JSON.stringify(obj, null, 2));
+      return api;
+    },
+    send: body => {
+      res.writeHead(statusCode);
+      res.end(body);
+      return api;
+    },
+    end: () => {
+      res.writeHead(statusCode);
+      res.end();
+      return api;
+    }
+  };
+  return api;
+}
+
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-RapidAPI-Key, X-RapidAPI-Host, X-RapidAPI-Proxy-Secret');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    return res.end();
-  }
-
   let bodyStr = '';
-  for await (const chunk of req) {
-    bodyStr += chunk;
-  }
+  for await (const chunk of req) bodyStr += chunk;
 
-  let bodyObj = {};
+  let body = {};
   if (bodyStr) {
     try {
-      bodyObj = JSON.parse(bodyStr);
+      body = JSON.parse(bodyStr);
     } catch {
-      // ignore non-JSON body
+      body = bodyStr; // MCP handler answers with a JSON-RPC parse error
     }
   }
 
-  const result = await handleApiRequest(req.url, req.method, bodyObj, req.headers);
-  res.writeHead(result.status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(result.body, null, 2));
+  const reqShim = { url: req.url, method: req.method, headers: req.headers, body };
+  try {
+    await handler(reqShim, shimResponse(res));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: false, error: err.message }));
+  }
 });
 
 server.listen(PORT, () => {
