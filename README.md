@@ -28,3 +28,24 @@ Convert any webpage URL into **clean LLM-ready Markdown**, run instant **Technic
 - **ULTRA ($29.99 / mo):** 25,000 requests/month (`+$0.002` per extra request) — Built for high-volume B2B enrichment & SaaS platforms.
 
 👉 **[Subscribe on RapidAPI Marketplace](https://rapidapi.com/kevinmoyapersonal/api/web2agent-clean-markdown-seo-geo-auditor)**
+
+---
+
+## 🔒 Security & Deployment
+
+All `/api/v1/*` endpoints only answer requests that come through the RapidAPI gateway (header `X-RapidAPI-Proxy-Secret`). The landing page (`/`), `/openapi.json` and `/api/v1/health` stay public.
+
+| Variable | Required | Description |
+| :--- | :---: | :--- |
+| `RAPIDAPI_PROXY_SECRETS` | ✅ on Vercel | Comma-separated list with the proxy secret of **each** RapidAPI project that uses this backend (Studio → Hub Listing → Gateway). |
+| `RAPIDAPI_PROXY_SECRET` | – | Legacy single secret (still accepted). |
+| `ALLOW_UNAUTHENTICATED` | – | `true` disables the check on Vercel. Only for demos — never in production. |
+
+If no secret is configured, the paid endpoints answer **503** on Vercel (fail closed), so a missing variable never exposes the API for free. Locally (`npm start`) the check is skipped when no secret is set.
+
+URL-fetching endpoints validate the target host and every redirect hop against private/reserved IP ranges (SSRF protection).
+
+```bash
+npm test              # unit tests (auth + SSRF)
+npm run test:live     # live smoke test against real websites
+```

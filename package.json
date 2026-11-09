@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node test-api.mjs"
+    "test": "node --test test/",
+    "test:live": "node test-api.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -25,6 +25,7 @@ import {
   analyzeAndRedactText,
   auditHttpSecurityHeaders
 } from '../lib/catalog-apis.mjs';
+import { checkProxySecret, assertPublicHost } from '../lib/security.mjs';
 
 const OPENAPI_SPEC = {
   openapi: '3.0.3',
@@ -96,20 +97,12 @@ const LANDING_HTML = `<!DOCTYPE html>
     </div>
 
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-10 shadow-xl">
-      <h2 class="text-lg font-semibold mb-3">🔬 Live Interactive API Playground</h2>
-      <div class="flex flex-col md:flex-row gap-3 mb-4">
-        <input id="urlInput" type="text" value="https://algora.io" placeholder="https://example.com" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
-        <select id="endpointSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm">
-          <option value="/api/v1/audit">GET /api/v1/audit (SEO + AI GEO Score)</option>
-          <option value="/api/v1/extract">GET /api/v1/extract (Clean LLM Markdown)</option>
-          <option value="/api/v1/tech-stack">GET /api/v1/tech-stack (B2B Tech & Contacts)</option>
-          <option value="/api/v1/full-report">GET /api/v1/full-report (All-in-One Report)</option>
-        </select>
-        <button onclick="runTest()" id="runBtn" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg text-sm transition">
-          Run API Call
-        </button>
-      </div>
-      <pre id="outputBox" class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs text-emerald-300 overflow-x-auto max-h-96">Click "Run API Call" to test the live production endpoint...</pre>
+      <h2 class="text-lg font-semibold mb-2">🔑 Try it free on RapidAPI</h2>
+      <p class="text-sm text-slate-400 mb-4">All endpoints are served exclusively through RapidAPI. The BASIC plan is free (50 requests/month, no credit card) and gives you an API key plus an in-browser playground with code snippets in 20+ languages.</p>
+      <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs text-emerald-300 overflow-x-auto">curl --request GET \\
+  --url 'https://web2agent-clean-markdown-seo-geo-auditor.p.rapidapi.com/api/v1/audit?url=https%3A%2F%2Fstripe.com' \\
+  --header 'x-rapidapi-host: web2agent-clean-markdown-seo-geo-auditor.p.rapidapi.com' \\
+  --header 'x-rapidapi-key: YOUR_RAPIDAPI_KEY'</pre>
     </div>
 
     <div class="grid md:grid-cols-3 gap-6">
@@ -130,47 +123,31 @@ const LANDING_HTML = `<!DOCTYPE html>
       </div>
     </div>
   </div>
-  <script>
-    async function runTest() {
-      const btn = document.getElementById('runBtn');
-      const out = document.getElementById('outputBox');
-      const url = document.getElementById('urlInput').value.trim();
-      const ep = document.getElementById('endpointSelect').value;
-      btn.textContent = 'Running...';
-      out.textContent = 'Fetching ' + ep + '?url=' + encodeURIComponent(url) + ' ...';
-      try {
-        const res = await fetch(ep + '?url=' + encodeURIComponent(url));
-        const data = await res.json();
-        out.textContent = JSON.stringify(data, null, 2);
-      } catch (e) {
-        out.textContent = 'Error: ' + e.message;
-      } finally {
-        btn.textContent = 'Run API Call';
-      }
-    }
-  </script>
 </body>
 </html>`;
 
 export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, headers = {}) {
-  const expectedSecret = process.env.RAPIDAPI_PROXY_SECRET;
-  if (expectedSecret) {
-    const incomingSecret = headers['x-rapidapi-proxy-secret'];
-    if (incomingSecret !== expectedSecret) {
-      return {
-        status: 403,
-        body: {
-          success: false,
-          error: 'Unauthorized: Missing or invalid X-RapidAPI-Proxy-Secret header.'
-        }
-      };
-    }
-  }
-
   const parsed = new URL(reqUrl, 'http://localhost');
   const rewrittenPath = parsed.searchParams.get('__path');
   const rawPathname = rewrittenPath || parsed.pathname;
   const pathname = rawPathname.replace(/\/+$/, '') || '/';
+
+  // Paid endpoints (/api/v1/*) are only reachable through the RapidAPI gateway.
+  // Landing page, OpenAPI spec and health checks stay public.
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname === '/api' ||
+    pathname === '/api/index.mjs' ||
+    pathname === '/openapi.json' ||
+    pathname.endsWith('/health') ||
+    pathname.endsWith('/ping');
+
+  if (!isPublicRoute) {
+    const auth = checkProxySecret(headers);
+    if (!auth.ok) {
+      return { status: auth.status, body: { success: false, error: auth.error } };
+    }
+  }
 
   if (pathname === '/openapi.json') {
     return {
@@ -235,6 +212,7 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
       }
       if (pathname.endsWith('/ssl-check')) {
         const cleanHost = String(domain).replace(/^https?:\/\//i, '').split('/')[0].replace(/^www\./i, '');
+        await assertPublicHost(cleanHost);
         const ssl = await inspectSslCertificate(cleanHost);
         return { status: 200, body: { success: true, domain: cleanHost, ssl } };
       }
@@ -386,7 +364,7 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
       status: 404,
       body: {
         success: false,
-        error: `Unknown endpoint "${pathname}". Valid endpoints: /api/v1/extract, /api/v1/audit, /api/v1/tech-stack, /api/v1/full-report`
+        error: `Unknown endpoint "${pathname}". Valid endpoints: /api/v1/extract, /api/v1/audit, /api/v1/tech-stack, /api/v1/full-report, /api/v1/email-verify, /api/v1/domain-recon, /api/v1/ssl-check, /api/v1/unfurl, /api/v1/ai-guard, /api/v1/security-headers`
       }
     };
   } catch (err) {
