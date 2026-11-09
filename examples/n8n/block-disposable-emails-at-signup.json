@@ -1,0 +1,175 @@
+{
+  "name": "Block disposable & fake emails at sign-up (webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Block disposable & fake emails at sign-up\n\nYour form or backend POSTs `{ \"email\": \"...\" }` to this webhook and gets back `{ allowed, reason, quality_score, is_business_email }` in ~0.5 s.\n\nUses the **Disposable Email, MX & B2B Lead Validator** API: syntax, MX records, disposable domains, free vs business provider, role accounts (info@, sales@).\n\n**Fails open:** if the API is unreachable the user is allowed, so an outage never blocks real sign-ups.",
+        "width": 520,
+        "height": 320
+      },
+      "id": "d8f7b937-7a64-4807-9260-8c98ddb17efb",
+      "name": "Note d5f729",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Test it\n```\ncurl -X POST <your webhook URL> \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"test@mailinator.com\"}'\n```\n→ `allowed: false, reason: disposable_email`\n\nGood to know: DNS/MX-based — it does not open an SMTP session.",
+        "width": 420,
+        "height": 320
+      },
+      "id": "08893dfb-a781-4bc0-a222-0ac8c1c31298",
+      "name": "Note 3621be",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Credential (one time)\n1. Subscribe on RapidAPI (free BASIC plan works for testing).\n2. In n8n: **Credentials → New → Header Auth**\n   - Name: `x-rapidapi-key`\n   - Value: your RapidAPI key\n3. Select that credential in the HTTP Request node.\n\nNo key is stored inside this workflow.",
+        "width": 380,
+        "height": 320
+      },
+      "id": "77808a97-0a39-4516-b9fc-f65a3b47468f",
+      "name": "Note eaed7c",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "signup-email-check",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "13d0e8a7-e551-4dd8-b3b8-ce73e8db550b",
+      "name": "Sign-up webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        60
+      ],
+      "webhookId": "2f79446a-f73b-46fb-ba59-774f87a3969a"
+    },
+    {
+      "parameters": {
+        "url": "https://disposable-email-mx-b2b-lead-validator.p.rapidapi.com/api/v1/email-verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.body.email }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "disposable-email-mx-b2b-lead-validator.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5540e61f-de5a-44fa-b12b-d48aef4631cc",
+      "name": "Validate email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        60
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fail OPEN: if the validator is unreachable we let the sign-up through\n// (never block real users because of an outage).\nconst r = $input.first().json || {};\nconst email = $('Sign-up webhook').first().json.body?.email || '';\nif (!email) {\n  return [{ json: { email, allowed: false, reason: 'missing_email' } }];\n}\nif (!r.success && r.isValidSyntax !== false) {\n  return [{ json: { email, allowed: true, reason: 'validation_unavailable' } }];\n}\nconst flags = r.flags || {};\nlet allowed = r.deliverable === true && !flags.isDisposable;\nlet reason = r.verdict || 'unknown';\nif (!r.isValidSyntax) { allowed = false; reason = 'invalid_syntax'; }\nelse if (flags.isDisposable) { reason = 'disposable_email'; }\nelse if (!r.deliverable) { reason = 'domain_cannot_receive_email'; }\nreturn [{ json: {\n  email,\n  allowed,\n  reason,\n  quality_score: r.qualityScore ?? null,\n  is_business_email: !!flags.isB2BCorporate,\n  is_role_account: !!flags.isRoleAccount,\n  mail_provider: r.mailServer?.provider ?? null,\n} }];"
+      },
+      "id": "55eacd0d-34b2-4f3f-b08c-a3258a9f2971",
+      "name": "Decide allow / block",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "42658d8c-bcad-485f-ae3f-0c3aeca7ccd7",
+      "name": "Reply to form",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        540,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Sign-up webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate email": {
+      "main": [
+        [
+          {
+            "node": "Decide allow / block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide allow / block": {
+      "main": [
+        [
+          {
+            "node": "Reply to form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

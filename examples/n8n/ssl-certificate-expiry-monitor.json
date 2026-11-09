@@ -1,0 +1,210 @@
+{
+  "name": "Daily SSL certificate expiry monitor with email alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily SSL certificate expiry monitor\n\nEvery morning checks the TLS certificate of each domain in your list and emails you **only** when one is invalid or expires within 21 days (edit `WARN_DAYS`).\n\nUses the **DNS, SSL Certificate & Domain Security Recon** API (`/api/v1/ssl-check`): issuer, validity dates, days remaining, SANs.\n\n**Who it's for:** agencies and MSPs managing many client sites.",
+        "width": 520,
+        "height": 320
+      },
+      "id": "07feb5f0-7f06-43db-bc3f-1613f50fe803",
+      "name": "Note 97efaf",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Setup\n1. Edit the domain list in **Domains to watch**.\n2. Configure SMTP credentials in **Send alert email** and set your address.\n   (Swap it for Slack / Telegram / Gmail if you prefer.)\n\nNo alert = all certificates are fine.",
+        "width": 420,
+        "height": 320
+      },
+      "id": "0d868500-7cf4-4228-af10-76ddcf3f81a2",
+      "name": "Note 8ae1a8",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Credential (one time)\n1. Subscribe on RapidAPI (free BASIC plan works for testing).\n2. In n8n: **Credentials → New → Header Auth**\n   - Name: `x-rapidapi-key`\n   - Value: your RapidAPI key\n3. Select that credential in the HTTP Request node.\n\nNo key is stored inside this workflow.",
+        "width": 380,
+        "height": 320
+      },
+      "id": "c076bc52-d6fb-4df9-bb46-0d45ec4b60c5",
+      "name": "Note 801f33",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "0c41d6d9-e171-4a6e-a736-062b22937efa",
+      "name": "Every day 7:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -180,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Edit this list: one item per domain you want to watch\nconst domains = [\n  'example.com',\n  'your-client-site.com',\n];\nreturn domains.map(domain => ({ json: { domain } }));"
+      },
+      "id": "ca019212-d4cd-4160-9fe6-b4fac3ac8c7f",
+      "name": "Domains to watch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://dns-ssl-certificate-domain-security-recon.p.rapidapi.com/api/v1/ssl-check",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "dns-ssl-certificate-domain-security-recon.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "c18c7b74-87e4-4716-a50a-4a64ffbc2c67",
+      "name": "Check SSL certificate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        60
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect certificates that are invalid or expire within WARN_DAYS\nconst WARN_DAYS = 21;\nconst watched = $('Domains to watch').all();\nconst problems = [];\n$input.all().forEach((item, i) => {\n  const r = item.json || {};\n  const domain = watched[i]?.json?.domain || r.domain;\n  const ssl = r.ssl || {};\n  if (!r.success) {\n    problems.push(`- ${domain}: could not check (${r.error || r.message || 'request failed'})`);\n  } else if (!ssl.valid) {\n    problems.push(`- ${domain}: INVALID or EXPIRED certificate${ssl.error ? ' (' + ssl.error + ')' : ''}`);\n  } else if (ssl.daysRemaining <= WARN_DAYS) {\n    const issuer = ssl.issuer?.O || ssl.issuer?.CN || 'unknown issuer';\n    problems.push(`- ${domain}: expires in ${ssl.daysRemaining} days (${ssl.validTo?.slice(0, 10)}, ${issuer})`);\n  }\n});\nif (problems.length === 0) return [];   // nothing to report -> workflow stops, no email\nreturn [{ json: {\n  subject: `SSL alert: ${problems.length} certificate(s) need attention`,\n  body: `Checked ${watched.length} domains.\\n\\n${problems.join('\\n')}\\n\\n— n8n SSL monitor`,\n} }];"
+      },
+      "id": "2e6c6b33-e43e-431a-a3a3-3f70c003e1e7",
+      "name": "Build alert (if needed)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@yourdomain.com",
+        "toEmail": "you@yourdomain.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "a56eb46e-daf4-4d7e-984e-ed5b98a14631",
+      "name": "Send alert email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        780,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Every day 7:00": {
+      "main": [
+        [
+          {
+            "node": "Domains to watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domains to watch": {
+      "main": [
+        [
+          {
+            "node": "Check SSL certificate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SSL certificate": {
+      "main": [
+        [
+          {
+            "node": "Build alert (if needed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert (if needed)": {
+      "main": [
+        [
+          {
+            "node": "Send alert email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

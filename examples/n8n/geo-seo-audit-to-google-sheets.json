@@ -1,0 +1,259 @@
+{
+  "name": "Weekly AI-search (GEO) & SEO audit of a site list → Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Weekly AI-search (GEO) + SEO audit for a list of websites\n\nReads URLs from a Google Sheet, audits each one with the **Web2Agent** API and writes a 0-100 score, A-D grade and the top issues to a second tab.\n\nChecks include `/llms.txt`, robots.txt rules for GPTBot / ClaudeBot / PerplexityBot / Google-Extended, JSON-LD, title/meta, H1 and image alt coverage.\n\n**Who it's for:** SEO & marketing agencies, in-house growth teams, anyone selling GEO audits.",
+        "width": 520,
+        "height": 300
+      },
+      "id": "93ad97eb-7127-46a2-b8d9-317dee40376a",
+      "name": "Note 49b997",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Google Sheet setup\nTab **Sites**: one column `url` (e.g. https://stripe.com)\n\nTab **Results**: leave empty — columns are created automatically:\n`url, checked_at, score, grade, issues_count, has_llms_txt, ai_bots_blocked, top_issues`\n\nPaste your sheet URL in both Google Sheets nodes.",
+        "width": 420,
+        "height": 300
+      },
+      "id": "b4754672-0132-4eb9-9a39-564e43340845",
+      "name": "Note e473e7",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Credential (one time)\n1. Subscribe on RapidAPI (free BASIC plan works for testing).\n2. In n8n: **Credentials → New → Header Auth**\n   - Name: `x-rapidapi-key`\n   - Value: your RapidAPI key\n3. Select that credential in the HTTP Request node.\n\nNo key is stored inside this workflow.\n\nRequests are sent one per 1.5 s to respect plan limits.",
+        "width": 400,
+        "height": 300
+      },
+      "id": "0776428c-f055-4e51-a345-dc7563d0befd",
+      "name": "Note 6fe013",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        -360
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "9a46e520-f43b-430c-ad81-617899733caf",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "7ef148fb-53a3-4b7f-b39b-af6e5880a1a4",
+      "name": "Every Monday 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -180,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sites",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "335e857c-5766-477e-943f-af1655942c7d",
+      "name": "Read site list",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        60,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://web2agent-clean-markdown-seo-geo-auditor.p.rapidapi.com/api/v1/audit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "web2agent-clean-markdown-seo-geo-auditor.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "30c20cf1-60be-48e0-9f2b-39e1ef7066b6",
+      "name": "Audit site (Web2Agent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pair every API response with the URL that was requested (same order)\nconst sites = $('Read site list').all();\nreturn $input.all().map((item, i) => {\n  const r = item.json || {};\n  const url = sites[i]?.json?.url || r.url || '';\n  if (!r.success) {\n    return { json: { url, checked_at: new Date().toISOString(), score: '', grade: 'ERROR',\n      issues_count: '', has_llms_txt: '', ai_bots_blocked: '', top_issues: r.error || r.message || 'Request failed' } };\n  }\n  const a = r.audit || {};\n  const ai = a.aiReadiness || {};\n  const rank = { high: 0, medium: 1, low: 2, info: 3 };\n  const top = (a.issues || [])\n    .sort((x, y) => (rank[x.severity] ?? 9) - (rank[y.severity] ?? 9))\n    .slice(0, 5)\n    .map(x => `[${x.severity}] ${x.category}: ${x.message}`)\n    .join('\\n');\n  return { json: {\n    url,\n    checked_at: new Date().toISOString(),\n    score: a.overallScore,\n    grade: a.grade,\n    issues_count: a.issuesCount,\n    has_llms_txt: ai.hasLlmsTxt ? 'yes' : 'no',\n    ai_bots_blocked: (ai.blockedBots || []).join(', ') || 'none',\n    top_issues: top,\n  } };\n});"
+      },
+      "id": "c785a317-a285-43e8-b549-ab8e308c3b24",
+      "name": "Shape result row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Results",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "34e5539d-d775-42c6-a0f9-2255f2fca50b",
+      "name": "Write results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        780,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Read site list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday 8:00": {
+      "main": [
+        [
+          {
+            "node": "Read site list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read site list": {
+      "main": [
+        [
+          {
+            "node": "Audit site (Web2Agent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit site (Web2Agent)": {
+      "main": [
+        [
+          {
+            "node": "Shape result row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape result row": {
+      "main": [
+        [
+          {
+            "node": "Write results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
