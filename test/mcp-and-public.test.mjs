@@ -105,7 +105,8 @@ test('public routes stay open in production; paid routes stay protected', async 
 
 test('landing renders in English and Spanish, with safe contact CTA config', async () => {
   const { renderLanding } = await import('../lib/landing.mjs');
-  const en = renderLanding('en', {});
+  const en = renderLanding('en', { CONTACT_URL: '' });
+  assert.match(renderLanding('es', {}), /wa\.me\/573112422826/);
   const es = renderLanding('es', { CONTACT_URL: 'https://wa.me/573000000000' });
   assert.match(en, /<html lang="en">/);
   assert.match(es, /<html lang="es">/);
