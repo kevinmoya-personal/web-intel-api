@@ -121,3 +121,42 @@ test('landing renders in English and Spanish, with safe contact CTA config', asy
   assert.equal(r.status, 200);
   assert.match(r.text, /lang="es"/);
 });
+
+test('landing shows monthly plans with WhatsApp CTA; hidden without contact', async () => {
+  const { renderLanding } = await import('../lib/landing.mjs');
+  const es = renderLanding('es', {});
+  assert.match(es, /id="planes"/);
+  assert.match(es, /Monitoreo mensual/);
+  assert.match(es, /wa\.me\/573112422826\?text=Hola%20Kevin/);
+  assert.match(renderLanding('en', {}), /Monthly monitoring/);
+  assert.doesNotMatch(renderLanding('es', { CONTACT_URL: '' }), /id="planes"/);
+});
+
+test('private report: disabled without REPORT_KEY, rejects wrong key, renders with right key', async () => {
+  const { handleReport, explainIssue, translatePassed, _resetReportAttempts } = await import('../lib/report.mjs');
+  _resetReportAttempts();
+  assert.equal((await handleReport('GET')).status, 200);
+  assert.equal((await handleReport('POST', { url: 'https://a.com', key: 'x' }, {}, {})).status, 503);
+  const env = { REPORT_KEY: 'clave-secreta' };
+  assert.equal((await handleReport('POST', { url: 'https://a.com', key: 'mala' }, {}, env)).status, 403);
+  assert.equal((await handleReport('POST', { key: 'clave-secreta' }, {}, env)).status, 400);
+  const fake = async url => ({
+    url, hostname: 'a.com', date: '2026-11-09', score: 62, grade: 'C', responseTimeMs: 300,
+    issues: [explainIssue({ severity: 'info', message: 'robots.txt blocks AI crawlers: GPTBot' }), explainIssue({ severity: 'high', message: 'Missing meta description.' })],
+    passed: [translatePassed('Canonical URL defined')], ai: { hasLlmsTxt: false, blockedBots: ['GPTBot'] },
+    technologies: ['WordPress'], security: { grade: 'D', score: 40, missing: ['Content-Security-Policy'] }, looksJsRendered: false
+  });
+  const ok = await handleReport('POST', { url: 'https://a.com', key: 'clave-secreta', cliente: '<b>Panadería</b>' }, {}, env, fake);
+  assert.equal(ok.status, 200);
+  assert.match(ok.text, /Prioridad Alta<\/span>1\. El sitio bloquea a estas IA: GPTBot/);
+  assert.match(ok.text, /Falta la descripción de la página/);
+  assert.match(ok.text, /Dirección canonical definida/);
+  assert.match(ok.text, /&lt;b&gt;Panadería/);
+  assert.doesNotMatch(ok.text, /clave-secreta/);
+  // lock after too many wrong keys from the same IP
+  for (let i = 0; i < 12; i++) await handleReport('POST', { url: 'https://a.com', key: 'no' }, { 'x-forwarded-for': '7.7.7.7' }, env);
+  assert.equal((await handleReport('POST', { url: 'https://a.com', key: 'clave-secreta' }, { 'x-forwarded-for': '7.7.7.7' }, env, fake)).status, 429);
+  _resetReportAttempts();
+  const viaRouter = await handleApiRequest('/informe', 'GET', {}, {});
+  assert.match(viaRouter.text, /Generar informe/);
+});

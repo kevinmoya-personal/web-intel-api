@@ -30,6 +30,7 @@ import { runPublicCheck } from '../lib/public-check.mjs';
 import { handleMcp } from '../lib/mcp.mjs';
 import { OG_IMAGE_PNG_BASE64, OG_IMAGE_ES_PNG_BASE64 } from '../lib/og-image.mjs';
 import { renderLanding } from '../lib/landing.mjs';
+import { handleReport } from '../lib/report.mjs';
 
 const OPENAPI_SPEC = {
   openapi: '3.0.3',
@@ -109,6 +110,7 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
     pathname === '/api/index.mjs' ||
     pathname === '/openapi.json' ||
     pathname === '/mcp' ||
+    pathname === '/informe' ||
     pathname === '/llms.txt' ||
     pathname === '/og.png' ||
     pathname === '/robots.txt' ||
@@ -152,6 +154,11 @@ export async function handleApiRequest(reqUrl, method = 'GET', bodyObj = {}, hea
   }
 
   // Remote MCP server for AI agents (each call forwarded to RapidAPI with the caller's key)
+  // Private client report (protected by REPORT_KEY, see lib/report.mjs)
+  if (pathname === '/informe') {
+    return handleReport(method, bodyObj, headers);
+  }
+
   if (pathname === '/mcp') {
     return handleMcp(method, bodyObj, headers);
   }
